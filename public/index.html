@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>YouTube Thumbnail Generator</title>
+    <link rel="icon" href="/favicon.png" />
+    <link rel="stylesheet" href="/css/style.css" />
+</head>
+
+<body>
+    <main>
+        <div id="page-heading">
+            <h1>Generate Thumbnail</h1>
+            <h2>Make free thumbnails for a YouTube Video!</h2>
+        </div>
+        <div id="form-wrapper">
+            <h3>Add details about the video to make a new thumbnail:</h3>
+            <form id="thumbnailForm">
+                <label for="title">Title of Video:</label>
+                <input type="text" id="title" name="title" required />
+                <label for="topic">Topic of Video:</label>
+                <input type="text" id="topic" name="topic" required />
+                <label for="requirements">Thumbnail Requirements:</label>
+                <input type="text" id="requirements" name="requirements" />
+                <label for="preferences-text">Include text</label>
+                <input type="checkbox" id="preferences-text" name="preferences-text" />
+                <label for="preferences-color">Color image</label>
+                <input type="checkbox" id="preferences-color" name="preferences-color" />
+                <label for="preferences-style">Natural Style (else vivid)</label>
+                <input type="checkbox" id="preferences-style" name="preferences-style" />
+                <button type="submit">Submit</button>
+            </form>
+        </div>
+        <div id="result" class="hidden">
+            <span id="thumbnail-wrapper">
+                <button id="download-btn">Download</button>
+                <img id="new-thumbnail" src="" style="width: 896px; height: 512px;" />
+            </span>
+            <h3>Prompt Used: </h3>
+            <p id="prompt-used"></p>
+        </div>
+    </main>
+    <script>
+        document.getElementById("thumbnailForm").addEventListener("submit", async (e) => {
+            e.preventDefault(); // Stops the form from refreshing the page
+
+            const title = document.getElementById("title").value;
+            const topic = document.getElementById("topic").value;
+            const requirements = document.getElementById("requirements").value;
+            const textTrue = document.getElementById("preferences-text").checked;
+            const colorTrue = document.getElementById("preferences-color").checked;
+            const naturalTrue = document.getElementById("preferences-style").checked;
+
+            const preferences = {
+                text: textTrue ? "text" : "not included",
+                color: colorTrue ? "color" : "black and white",
+                style: naturalTrue ? "natural" : "vivid"
+            };
+            const response = await fetch(`/api/v1/openai/thumbnails/youtube`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ title, topic, requirements, preferences })
+            });
+
+            if (response.ok) {
+                const dataList = await response.json();
+                const data = dataList[0];
+                console.log("Thumbnail generated:", data);
+                const b64 = data.b64_json;
+                const mime = "image/png";
+                const dataUrl = `data:${mime};base64,${b64}`;
+                const img = document.getElementById("new-thumbnail");
+                img.setAttribute("src", dataUrl);
+                const promptText = document.getElementById("prompt-used");
+                promptText.textContent = data.revised_prompt;
+                document.getElementById('result').className = "show";
+            } else {
+                alert("Error generating thumbnail");
+            }
+        });
+
+        document.getElementById("download-btn").addEventListener("click", async function () {
+            const imageUrl = document.getElementById("new-thumbnail").src;
+            try {
+                // Fetch the image as a blob
+                const blob = await (await fetch(imageUrl)).blob();
+                // Create a blob URL for the image
+                const blobUrl = URL.createObjectURL(blob);
+
+                const a = document.createElement("a");
+                a.href = blobUrl;
+                a.download = "thumbnail.png";
+                a.click();
+                URL.revokeObjectURL(blobUrl);
+            } catch (error) {
+                console.error("Download failed:", error);
+            }
+        });
+    </script>
+</body>
+
+</html>
